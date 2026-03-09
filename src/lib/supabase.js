@@ -11,6 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
+    flowType: 'pkce',
     persistSession: true,
     storageKey: 'checkin-app-auth',
     storage: window.localStorage,
