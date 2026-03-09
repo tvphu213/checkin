@@ -27,7 +27,7 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '')}/dashboard`,
         queryParams: {
           // Session lasts 7 days
           access_type: 'offline',
