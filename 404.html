@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <title>CheckIn App</title>
     <script>
-      // GitHub Pages SPA redirect trick
+      // spa-github-pages redirect trick (pathSegmentsToKeep=1 for project pages)
       var l = window.location;
       l.replace(
         l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + 1).join('/') + '/?p=/' +
+        l.pathname.split('/').slice(0, 1 + 1).join('/') + '/?/' +
         l.pathname.slice(1).split('/').slice(1).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
         l.hash
       );
     </script>
