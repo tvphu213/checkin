@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import LoadingSpinner from '../components/LoadingSpinner'
 import InstallPWA from '../components/InstallPWA'
 
@@ -10,15 +11,19 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 export default function CheckinPage() {
   const { eventId } = useParams()
+  const { user, loading: authLoading } = useAuth()
   const [event, setEvent] = useState(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [todayNames, setTodayNames] = useState(new Set()) // lowercase names already checked in today
+  const [todayNames, setTodayNames] = useState(new Set())
 
   const [people, setPeople] = useState([EMPTY_PERSON()])
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [showManualForm, setShowManualForm] = useState(false)
+
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email
 
   // Fetch event info + today's attendances
   useEffect(() => {
@@ -38,7 +43,6 @@ export default function CheckinPage() {
         setEvent(data)
         setLoadingEvent(false)
 
-        // Load today's names
         supabase
           .from('attendances')
           .select('name')
@@ -66,6 +70,31 @@ export default function CheckinPage() {
     )
   }, [])
 
+  const submitNames = async (names) => {
+    setSubmitError(null)
+    setSubmitting(true)
+    try {
+      const rows = names.map((n) => ({ event_id: eventId, name: n }))
+      const { error } = await supabase.from('attendances').insert(rows)
+      if (error) throw error
+      setSuccess(true)
+    } catch (err) {
+      setSubmitError(err.message || 'Điểm danh thất bại. Vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Auto check-in for logged-in user (one tap)
+  const handleAutoCheckin = async () => {
+    if (todayNames.has(displayName.trim().toLowerCase())) {
+      setSubmitError(`Bạn đã điểm danh hôm nay rồi.`)
+      return
+    }
+    await submitNames([displayName.trim()])
+  }
+
+  // Manual form submit
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitError(null)
@@ -76,7 +105,6 @@ export default function CheckinPage() {
       return
     }
 
-    // Check duplicates: name trùng hôm nay mà chưa có ghi chú
     const duplicates = validPeople.filter(
       (p) => todayNames.has(p.name.trim().toLowerCase()) && !p.note.trim()
     )
@@ -90,31 +118,20 @@ export default function CheckinPage() {
       return
     }
 
-    setSubmitting(true)
-    try {
-      const rows = validPeople.map((p) => ({
-        event_id: eventId,
-        name: p.note.trim()
-          ? `${p.name.trim()} (${p.note.trim()})`
-          : p.name.trim(),
-      }))
-
-      const { error } = await supabase.from('attendances').insert(rows)
-      if (error) throw error
-      setSuccess(true)
-    } catch (err) {
-      setSubmitError(err.message || 'Điểm danh thất bại. Vui lòng thử lại.')
-    } finally {
-      setSubmitting(false)
-    }
+    const names = validPeople.map((p) =>
+      p.note.trim() ? `${p.name.trim()} (${p.note.trim()})` : p.name.trim()
+    )
+    await submitNames(names)
   }
 
   const handleCheckinAgain = () => {
     setSuccess(false)
+    setSubmitError(null)
     setPeople([EMPTY_PERSON()])
+    setShowManualForm(false)
   }
 
-  if (loadingEvent) {
+  if (loadingEvent || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -193,9 +210,6 @@ export default function CheckinPage() {
       {/* Form */}
       <div className="max-w-lg mx-auto px-4 -mt-8 pb-10">
         <div className="card">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
-            Nhập tên người tham dự
-          </h2>
 
           {submitError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
@@ -203,77 +217,121 @@ export default function CheckinPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {people.map((person, index) => (
-              <div key={person.id} className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 text-xs text-gray-400 text-center flex-shrink-0">
-                    {index + 1}
+          {/* Auto check-in for logged-in users */}
+          {user && !showManualForm ? (
+            <div className="text-center">
+              <p className="text-sm text-gray-500 mb-1">Đăng nhập với</p>
+              <p className="text-lg font-bold text-gray-900 mb-6">{displayName}</p>
+              <button
+                onClick={handleAutoCheckin}
+                disabled={submitting}
+                className="btn-primary w-full text-lg py-3"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <LoadingSpinner size="sm" />
+                    Đang điểm danh...
                   </span>
-                  <input
-                    type="text"
-                    value={person.name}
-                    onChange={(e) => updatePerson(person.id, 'name', e.target.value)}
-                    placeholder={`Tên người ${index + 1}`}
-                    className={`input-field flex-1 ${person.hasDuplicate ? 'border-amber-400 focus:ring-amber-400' : ''}`}
-                    maxLength={80}
-                    autoFocus={index === 0}
-                  />
-                  {people.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removePerson(person.id)}
-                      className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                      aria-label="Xoá"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-
-                {/* Note field — hiện khi tên bị trùng */}
-                {person.hasDuplicate && (
-                  <div className="ml-8 space-y-1">
-                    <p className="text-xs text-amber-600 font-medium">
-                      ⚠️ Tên "<span className="font-semibold">{person.name.trim()}</span>" đã điểm danh hôm nay. Thêm ghi chú để phân biệt.
-                    </p>
-                    <input
-                      type="text"
-                      value={person.note}
-                      onChange={(e) => updatePerson(person.id, 'note', e.target.value)}
-                      placeholder='Ghi chú, ví dụ: "Lớp A", "Con trai"...'
-                      className="input-field text-sm"
-                      maxLength={40}
-                      autoFocus
-                    />
-                  </div>
+                ) : (
+                  'Điểm danh ngay'
                 )}
-              </div>
-            ))}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowManualForm(true)}
+                className="mt-4 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Điểm danh tên khác
+              </button>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-base font-semibold text-gray-900 mb-4">
+                Nhập tên người tham dự
+              </h2>
 
-            <button
-              type="button"
-              onClick={addPerson}
-              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 hover:border-primary-400 text-gray-400 hover:text-primary-600 py-2.5 rounded-xl text-sm font-medium transition-colors"
-            >
-              + Thêm người
-            </button>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {people.map((person, index) => (
+                  <div key={person.id} className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 text-xs text-gray-400 text-center flex-shrink-0">
+                        {index + 1}
+                      </span>
+                      <input
+                        type="text"
+                        value={person.name}
+                        onChange={(e) => updatePerson(person.id, 'name', e.target.value)}
+                        placeholder={`Tên người ${index + 1}`}
+                        className={`input-field flex-1 ${person.hasDuplicate ? 'border-amber-400 focus:ring-amber-400' : ''}`}
+                        maxLength={80}
+                        autoFocus={index === 0}
+                      />
+                      {people.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePerson(person.id)}
+                          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          aria-label="Xoá"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
 
-            <button
-              type="submit"
-              disabled={submitting || people.every((p) => !p.name.trim())}
-              className="btn-primary w-full mt-2"
-            >
-              {submitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  Đang điểm danh...
-                </span>
-              ) : (
-                `Điểm danh (${people.filter((p) => p.name.trim()).length} người)`
-              )}
-            </button>
-          </form>
+                    {person.hasDuplicate && (
+                      <div className="ml-8 space-y-1">
+                        <p className="text-xs text-amber-600 font-medium">
+                          ⚠️ Tên "<span className="font-semibold">{person.name.trim()}</span>" đã điểm danh hôm nay. Thêm ghi chú để phân biệt.
+                        </p>
+                        <input
+                          type="text"
+                          value={person.note}
+                          onChange={(e) => updatePerson(person.id, 'note', e.target.value)}
+                          placeholder='Ghi chú, ví dụ: "Lớp A", "Con trai"...'
+                          className="input-field text-sm"
+                          maxLength={40}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addPerson}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 hover:border-primary-400 text-gray-400 hover:text-primary-600 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  + Thêm người
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={submitting || people.every((p) => !p.name.trim())}
+                  className="btn-primary w-full mt-2"
+                >
+                  {submitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <LoadingSpinner size="sm" />
+                      Đang điểm danh...
+                    </span>
+                  ) : (
+                    `Điểm danh (${people.filter((p) => p.name.trim()).length} người)`
+                  )}
+                </button>
+
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowManualForm(false); setSubmitError(null) }}
+                    className="w-full text-sm text-gray-400 hover:text-gray-600 transition-colors pt-1"
+                  >
+                    ← Quay lại
+                  </button>
+                )}
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
