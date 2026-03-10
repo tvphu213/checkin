@@ -1,11 +1,16 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import QRScanner from '../components/QRScanner'
 
 export default function HomePage() {
   const { user } = useAuth()
+  const [showScanner, setShowScanner] = useState(false)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-blue-50 flex flex-col">
+      {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
+
       {/* Header */}
       <header className="px-6 py-4 flex justify-between items-center max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-2">
@@ -43,18 +48,19 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => setShowScanner(true)}
+              className="btn-primary text-base py-3 px-8 flex items-center justify-center gap-2"
+            >
+              <span>📷</span>
+              Scan QR để điểm danh
+            </button>
             <Link
               to={user ? '/create' : '/login'}
-              className="btn-primary text-base py-3 px-8"
+              className="btn-secondary text-base py-3 px-8"
             >
               Tạo sự kiện
             </Link>
-            <a
-              href="#how-it-works"
-              className="btn-secondary text-base py-3 px-8"
-            >
-              Xem cách dùng
-            </a>
           </div>
         </div>
 

@@ -147,13 +147,6 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <InstallPWA />
-            <button
-              onClick={() => setShowScanner(true)}
-              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
-            >
-              <span>📷</span>
-              <span className="hidden sm:inline">Scan QR</span>
-            </button>
             <span className="text-sm text-gray-500 hidden sm:block truncate max-w-[140px]">
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>
@@ -165,6 +158,15 @@ export default function Dashboard() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+
+        {/* === Scan QR === */}
+        <button
+          onClick={() => setShowScanner(true)}
+          className="w-full flex items-center justify-center gap-3 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-semibold text-base py-4 rounded-2xl shadow-md shadow-primary-200 transition-colors"
+        >
+          <span className="text-2xl">📷</span>
+          Scan QR để điểm danh
+        </button>
 
         {/* === Sự kiện của bạn === */}
         <section>
