@@ -74,7 +74,12 @@ export default function CheckinPage() {
     setSubmitError(null)
     setSubmitting(true)
     try {
-      const rows = names.map((n) => ({ event_id: eventId, name: n }))
+      const rows = names.map((n, i) => ({
+        event_id: eventId,
+        name: n,
+        // Only attach user_id for the first entry when logged in (their own check-in)
+        ...(user && i === 0 ? { user_id: user.id } : {}),
+      }))
       const { error } = await supabase.from('attendances').insert(rows)
       if (error) throw error
       setSuccess(true)

@@ -124,6 +124,9 @@ export default function Dashboard() {
             <span className="text-sm text-gray-500 hidden sm:block">
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>
+            <Link to="/history" className="text-sm text-gray-500 hover:text-gray-700 transition-colors hidden sm:block">
+              Lịch sử
+            </Link>
             <Link to="/create" className="btn-primary text-sm py-2 px-4">
               + Tạo sự kiện
             </Link>
@@ -172,9 +175,16 @@ export default function Dashboard() {
                     <p className="font-semibold text-sm text-gray-900 truncate">
                       {event.name}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs text-gray-400">
                         {event.type === 'one-time' ? 'Một lần' : 'Định kỳ'}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                        event.is_public
+                          ? 'bg-green-50 text-green-600'
+                          : 'bg-orange-50 text-orange-600'
+                      }`}>
+                        {event.is_public ? 'Công khai' : 'Riêng tư'}
                       </span>
                       {event.cost > 0 && (
                         <>

@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage'
 import CreateEvent from './pages/CreateEvent'
 import CheckinPage from './pages/CheckinPage'
 import Dashboard from './pages/Dashboard'
+import History from './pages/History'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -39,6 +40,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CreateEvent />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <History />
           </ProtectedRoute>
         }
       />

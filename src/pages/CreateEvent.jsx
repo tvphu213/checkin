@@ -12,7 +12,7 @@ const EVENT_TYPES = [
 
 export default function CreateEvent() {
   const { user, signOut } = useAuth()
-  const [form, setForm] = useState({ name: '', type: 'one-time', cost: '' })
+  const [form, setForm] = useState({ name: '', type: 'one-time', cost: '', is_public: true })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [createdEvent, setCreatedEvent] = useState(null)
@@ -22,8 +22,8 @@ export default function CreateEvent() {
     : null
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
   const handleSubmit = async (e) => {
@@ -41,6 +41,7 @@ export default function CreateEvent() {
           type: form.type,
           cost: form.cost ? parseInt(form.cost, 10) : null,
           owner_id: user.id,
+          is_public: form.is_public,
         })
         .select()
         .single()
@@ -158,6 +159,34 @@ export default function CreateEvent() {
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray-400">VNĐ</span>
                 </div>
+              </div>
+
+              {/* Visibility */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Quyền truy cập
+                </label>
+                <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                  form.is_public ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="checkbox"
+                    name="is_public"
+                    checked={form.is_public}
+                    onChange={handleChange}
+                    className="mt-0.5 accent-primary-600"
+                  />
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900">
+                      {form.is_public ? 'Công khai' : 'Riêng tư'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {form.is_public
+                        ? 'Ai cũng có thể xem tên sự kiện khi scan QR'
+                        : 'Chỉ người đã điểm danh (có tài khoản) mới xem được'}
+                    </p>
+                  </div>
+                </label>
               </div>
 
               <button
