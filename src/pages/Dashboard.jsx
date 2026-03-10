@@ -5,11 +5,13 @@ import { useAuth } from '../hooks/useAuth'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import InstallPWA from '../components/InstallPWA'
+import QRScanner from '../components/QRScanner'
 
 const PREVIEW_COUNT = 3
 
 export default function Dashboard() {
   const { user, signOut } = useAuth()
+  const [showScanner, setShowScanner] = useState(false)
 
   // Owned events
   const [events, setEvents] = useState([])
@@ -132,6 +134,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {showScanner && <QRScanner onClose={() => setShowScanner(false)} />}
+
       {/* Navbar */}
       <nav className="bg-white border-b border-gray-100 px-4 py-4 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -143,6 +147,13 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-3">
             <InstallPWA />
+            <button
+              onClick={() => setShowScanner(true)}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <span>📷</span>
+              <span className="hidden sm:inline">Scan QR</span>
+            </button>
             <span className="text-sm text-gray-500 hidden sm:block truncate max-w-[140px]">
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>
