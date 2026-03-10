@@ -83,6 +83,15 @@ export default function Dashboard() {
   const paidCount = attendances.filter((a) => a.has_paid).length
   const unpaidCount = attendances.length - paidCount
 
+  // Group attendances by date, newest first
+  const attendancesByDate = attendances.reduce((acc, att) => {
+    const day = att.date || att.checked_in_at.slice(0, 10)
+    if (!acc[day]) acc[day] = []
+    acc[day].push(att)
+    return acc
+  }, {})
+  const sortedDates = Object.keys(attendancesByDate).sort((a, b) => b.localeCompare(a))
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navbar */}
@@ -252,50 +261,70 @@ export default function Dashboard() {
                       <p className="text-sm">Chưa có ai điểm danh</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-50">
-                      {attendances.map((att) => (
-                        <div
-                          key={att.id}
-                          className="flex items-center justify-between py-3 gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
-                              {att.name.charAt(0).toUpperCase()}
+                    <div className="space-y-5">
+                      {sortedDates.map((day) => {
+                        const group = attendancesByDate[day]
+                        const dayPaid = group.filter((a) => a.has_paid).length
+                        return (
+                          <div key={day}>
+                            {/* Date header */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-700">
+                                  {new Date(day + 'T00:00:00').toLocaleDateString('vi-VN', {
+                                    weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric'
+                                  })}
+                                </span>
+                                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                                  {group.length} người
+                                </span>
+                              </div>
+                              {selectedEvent.cost > 0 && (
+                                <span className="text-xs text-gray-400">
+                                  {dayPaid}/{group.length} đã trả
+                                </span>
+                              )}
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm text-gray-900 truncate">
-                                {att.name}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                {new Date(att.checked_in_at).toLocaleString('vi-VN', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
+
+                            {/* Attendees */}
+                            <div className="divide-y divide-gray-50 border border-gray-100 rounded-xl overflow-hidden">
+                              {group.map((att) => (
+                                <div
+                                  key={att.id}
+                                  className="flex items-center justify-between px-4 py-3 gap-3 bg-white"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                                      {att.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <p className="font-medium text-sm text-gray-900 truncate">
+                                      {att.name}
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    onClick={() => togglePayment(att)}
+                                    disabled={updatingId === att.id}
+                                    className={`flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
+                                      att.has_paid
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        : 'bg-red-50 text-red-500 hover:bg-red-100'
+                                    }`}
+                                  >
+                                    {updatingId === att.id ? (
+                                      <LoadingSpinner size="sm" />
+                                    ) : att.has_paid ? (
+                                      <>✓ Đã trả</>
+                                    ) : (
+                                      <>✗ Chưa trả</>
+                                    )}
+                                  </button>
+                                </div>
+                              ))}
                             </div>
                           </div>
-
-                          <button
-                            onClick={() => togglePayment(att)}
-                            disabled={updatingId === att.id}
-                            className={`flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 ${
-                              att.has_paid
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-50 text-red-500 hover:bg-red-100'
-                            }`}
-                          >
-                            {updatingId === att.id ? (
-                              <LoadingSpinner size="sm" />
-                            ) : att.has_paid ? (
-                              <>✓ Đã trả</>
-                            ) : (
-                              <>✗ Chưa trả</>
-                            )}
-                          </button>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
