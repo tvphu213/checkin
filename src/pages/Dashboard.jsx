@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [showQR, setShowQR] = useState(false)
   const [updatingId, setUpdatingId] = useState(null)
   const [error, setError] = useState(null)
+  const [activeView, setActiveView] = useState('date') // 'date' | 'person'
 
   // Load events
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function Dashboard() {
   const loadAttendances = useCallback(async (event) => {
     setSelectedEvent(event)
     setShowQR(false)
+    setActiveView('date')
     setLoadingAttendances(true)
     setError(null)
 
@@ -80,10 +82,7 @@ export default function Dashboard() {
     ? `${window.location.origin}/checkin/${selectedEvent.id}`
     : null
 
-  const paidCount = attendances.filter((a) => a.has_paid).length
-  const unpaidCount = attendances.length - paidCount
-
-  // Group attendances by date, newest first
+  // Group by date
   const attendancesByDate = attendances.reduce((acc, att) => {
     const day = att.date || att.checked_in_at.slice(0, 10)
     if (!acc[day]) acc[day] = []
@@ -91,6 +90,21 @@ export default function Dashboard() {
     return acc
   }, {})
   const sortedDates = Object.keys(attendancesByDate).sort((a, b) => b.localeCompare(a))
+
+  // Group by person (normalize: trim + lowercase key, keep original display name)
+  const byPerson = attendances.reduce((acc, att) => {
+    const key = att.name.trim().toLowerCase()
+    if (!acc[key]) acc[key] = { displayName: att.name.trim(), sessions: 0, paid: 0 }
+    acc[key].sessions++
+    if (att.has_paid) acc[key].paid++
+    return acc
+  }, {})
+  const peopleStats = Object.values(byPerson).sort((a, b) => a.displayName.localeCompare(b.displayName))
+
+  const uniqueCount = peopleStats.length
+  const paidCount = attendances.filter((a) => a.has_paid).length
+  const unpaidCount = attendances.length - paidCount
+  const cost = selectedEvent?.cost || 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,23 +240,41 @@ export default function Dashboard() {
                 {/* Stats */}
                 {!loadingAttendances && (
                   <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: 'Tổng người', value: attendances.length, color: 'text-gray-900' },
-                      { label: 'Đã thanh toán', value: paidCount, color: 'text-green-600' },
-                      { label: 'Chưa thanh toán', value: unpaidCount, color: 'text-red-500' },
-                    ].map((stat) => (
-                      <div key={stat.label} className="card text-center py-4">
-                        <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
-                      </div>
-                    ))}
+                    <button
+                      onClick={() => setActiveView('date')}
+                      className={`card text-center py-4 transition-all ${activeView === 'date' ? 'ring-2 ring-primary-400' : 'hover:shadow-md'}`}
+                    >
+                      <p className="text-2xl font-bold text-gray-900">{uniqueCount}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Người tham gia</p>
+                      {attendances.length !== uniqueCount && (
+                        <p className="text-xs text-gray-400">{attendances.length} lượt</p>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveView('paid')}
+                      className={`card text-center py-4 transition-all ${activeView === 'paid' ? 'ring-2 ring-green-400' : 'hover:shadow-md'}`}
+                    >
+                      <p className="text-2xl font-bold text-green-600">{paidCount}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Lượt đã trả</p>
+                      {cost > 0 && <p className="text-xs text-green-500">{(paidCount * cost).toLocaleString('vi-VN')}đ</p>}
+                    </button>
+                    <button
+                      onClick={() => setActiveView('unpaid')}
+                      className={`card text-center py-4 transition-all ${activeView === 'unpaid' ? 'ring-2 ring-red-400' : 'hover:shadow-md'}`}
+                    >
+                      <p className="text-2xl font-bold text-red-500">{unpaidCount}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Lượt chưa trả</p>
+                      {cost > 0 && <p className="text-xs text-red-400">{(unpaidCount * cost).toLocaleString('vi-VN')}đ</p>}
+                    </button>
                   </div>
                 )}
 
                 {/* Attendances */}
                 <div className="card">
                   <h3 className="font-semibold text-gray-900 mb-4">
-                    Danh sách điểm danh
+                    {activeView === 'date' && 'Điểm danh theo ngày'}
+                    {activeView === 'paid' && '✓ Người đã thanh toán'}
+                    {activeView === 'unpaid' && '✗ Người còn nợ'}
                   </h3>
 
                   {error && (
@@ -259,6 +291,47 @@ export default function Dashboard() {
                     <div className="text-center py-8 text-gray-400">
                       <p className="text-3xl mb-2">🙈</p>
                       <p className="text-sm">Chưa có ai điểm danh</p>
+                    </div>
+                  ) : (activeView === 'paid' || activeView === 'unpaid') ? (
+                    // Person view — grouped by name
+                    <div className="divide-y divide-gray-50">
+                      {peopleStats
+                        .filter((p) => activeView === 'paid' ? p.paid > 0 : p.paid < p.sessions)
+                        .map((p) => {
+                          const unpaid = p.sessions - p.paid
+                          return (
+                            <div key={p.displayName} className="flex items-center justify-between py-3 gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
+                                  {p.displayName.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm text-gray-900 truncate">{p.displayName}</p>
+                                  <p className="text-xs text-gray-400">
+                                    {p.sessions} buổi · {p.paid} đã trả · {unpaid} chưa trả
+                                  </p>
+                                </div>
+                              </div>
+                              {cost > 0 && (
+                                <div className="text-right flex-shrink-0">
+                                  {activeView === 'unpaid' && unpaid > 0 && (
+                                    <p className="text-sm font-semibold text-red-500">
+                                      -{(unpaid * cost).toLocaleString('vi-VN')}đ
+                                    </p>
+                                  )}
+                                  {activeView === 'paid' && p.paid > 0 && (
+                                    <p className="text-sm font-semibold text-green-600">
+                                      +{(p.paid * cost).toLocaleString('vi-VN')}đ
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      {peopleStats.filter((p) => activeView === 'paid' ? p.paid > 0 : p.paid < p.sessions).length === 0 && (
+                        <p className="text-center py-6 text-sm text-gray-400">Không có ai</p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-5">
