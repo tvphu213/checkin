@@ -124,7 +124,7 @@ export default function Dashboard() {
             <span className="text-sm text-gray-500 hidden sm:block">
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>
-            <Link to="/history" className="text-sm text-gray-500 hover:text-gray-700 transition-colors hidden sm:block">
+            <Link to="/history" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
               Lịch sử
             </Link>
             <Link to="/create" className="btn-primary text-sm py-2 px-4">
