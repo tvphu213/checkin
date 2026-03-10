@@ -3,20 +3,23 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-const EMPTY_PERSON = () => ({ name: '', id: crypto.randomUUID() })
+const EMPTY_PERSON = () => ({ id: crypto.randomUUID(), name: '', note: '', hasDuplicate: false })
+
+const today = () => new Date().toISOString().slice(0, 10)
 
 export default function CheckinPage() {
   const { eventId } = useParams()
   const [event, setEvent] = useState(null)
   const [loadingEvent, setLoadingEvent] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [todayNames, setTodayNames] = useState(new Set()) // lowercase names already checked in today
 
   const [people, setPeople] = useState([EMPTY_PERSON()])
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
   const [success, setSuccess] = useState(false)
 
-  // Fetch event info
+  // Fetch event info + today's attendances
   useEffect(() => {
     if (!eventId) return
 
@@ -28,10 +31,23 @@ export default function CheckinPage() {
       .then(({ data, error }) => {
         if (error || !data) {
           setNotFound(true)
-        } else {
-          setEvent(data)
+          setLoadingEvent(false)
+          return
         }
+        setEvent(data)
         setLoadingEvent(false)
+
+        // Load today's names
+        supabase
+          .from('attendances')
+          .select('name')
+          .eq('event_id', eventId)
+          .eq('date', today())
+          .then(({ data: rows }) => {
+            if (rows) {
+              setTodayNames(new Set(rows.map((r) => r.name.trim().toLowerCase())))
+            }
+          })
       })
   }, [eventId])
 
@@ -43,33 +59,47 @@ export default function CheckinPage() {
     setPeople((prev) => prev.filter((p) => p.id !== id))
   }, [])
 
-  const updatePerson = useCallback((id, value) => {
+  const updatePerson = useCallback((id, field, value) => {
     setPeople((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name: value } : p))
+      prev.map((p) => p.id === id ? { ...p, [field]: value, hasDuplicate: false } : p)
     )
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const validPeople = people.filter((p) => p.name.trim())
+    setSubmitError(null)
 
+    const validPeople = people.filter((p) => p.name.trim())
     if (validPeople.length === 0) {
       setSubmitError('Vui lòng nhập ít nhất một tên.')
       return
     }
 
-    setSubmitting(true)
-    setSubmitError(null)
+    // Check duplicates: name trùng hôm nay mà chưa có ghi chú
+    const duplicates = validPeople.filter(
+      (p) => todayNames.has(p.name.trim().toLowerCase()) && !p.note.trim()
+    )
 
+    if (duplicates.length > 0) {
+      setPeople((prev) =>
+        prev.map((p) =>
+          duplicates.find((d) => d.id === p.id) ? { ...p, hasDuplicate: true } : p
+        )
+      )
+      return
+    }
+
+    setSubmitting(true)
     try {
       const rows = validPeople.map((p) => ({
         event_id: eventId,
-        name: p.name.trim(),
+        name: p.note.trim()
+          ? `${p.name.trim()} (${p.note.trim()})`
+          : p.name.trim(),
       }))
 
       const { error } = await supabase.from('attendances').insert(rows)
       if (error) throw error
-
       setSuccess(true)
     } catch (err) {
       setSubmitError(err.message || 'Điểm danh thất bại. Vui lòng thử lại.')
@@ -82,8 +112,6 @@ export default function CheckinPage() {
     setSuccess(false)
     setPeople([EMPTY_PERSON()])
   }
-
-  // --- States ---
 
   if (loadingEvent) {
     return (
@@ -101,9 +129,7 @@ export default function CheckinPage() {
         <p className="text-gray-500 text-sm mb-6">
           Link này không hợp lệ hoặc sự kiện đã bị xoá.
         </p>
-        <Link to="/" className="btn-primary">
-          Về trang chủ
-        </Link>
+        <Link to="/" className="btn-primary">Về trang chủ</Link>
       </div>
     )
   }
@@ -175,28 +201,48 @@ export default function CheckinPage() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             {people.map((person, index) => (
-              <div key={person.id} className="flex items-center gap-2">
-                <span className="w-6 text-xs text-gray-400 text-center flex-shrink-0">
-                  {index + 1}
-                </span>
-                <input
-                  type="text"
-                  value={person.name}
-                  onChange={(e) => updatePerson(person.id, e.target.value)}
-                  placeholder={`Tên người ${index + 1}`}
-                  className="input-field flex-1"
-                  maxLength={80}
-                  autoFocus={index === 0}
-                />
-                {people.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removePerson(person.id)}
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    aria-label="Xoá"
-                  >
-                    ×
-                  </button>
+              <div key={person.id} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 text-xs text-gray-400 text-center flex-shrink-0">
+                    {index + 1}
+                  </span>
+                  <input
+                    type="text"
+                    value={person.name}
+                    onChange={(e) => updatePerson(person.id, 'name', e.target.value)}
+                    placeholder={`Tên người ${index + 1}`}
+                    className={`input-field flex-1 ${person.hasDuplicate ? 'border-amber-400 focus:ring-amber-400' : ''}`}
+                    maxLength={80}
+                    autoFocus={index === 0}
+                  />
+                  {people.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePerson(person.id)}
+                      className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      aria-label="Xoá"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Note field — hiện khi tên bị trùng */}
+                {person.hasDuplicate && (
+                  <div className="ml-8 space-y-1">
+                    <p className="text-xs text-amber-600 font-medium">
+                      ⚠️ Tên "<span className="font-semibold">{person.name.trim()}</span>" đã điểm danh hôm nay. Thêm ghi chú để phân biệt.
+                    </p>
+                    <input
+                      type="text"
+                      value={person.note}
+                      onChange={(e) => updatePerson(person.id, 'note', e.target.value)}
+                      placeholder='Ghi chú, ví dụ: "Lớp A", "Con trai"...'
+                      className="input-field text-sm"
+                      maxLength={40}
+                      autoFocus
+                    />
+                  </div>
                 )}
               </div>
             ))}
