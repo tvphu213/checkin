@@ -127,9 +127,6 @@ export default function Dashboard() {
             <Link to="/history" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
               Lịch sử
             </Link>
-            <Link to="/create" className="btn-primary text-sm py-2 px-4">
-              + Tạo sự kiện
-            </Link>
             <button
               onClick={signOut}
               className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
