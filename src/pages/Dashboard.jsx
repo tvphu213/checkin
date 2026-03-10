@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import LoadingSpinner from '../components/LoadingSpinner'
 import QRCodeDisplay from '../components/QRCodeDisplay'
+import InstallPWA from '../components/InstallPWA'
 
 export default function Dashboard() {
   const { user, signOut } = useAuth()
@@ -118,6 +119,7 @@ export default function Dashboard() {
             <span className="font-bold text-gray-900">CheckIn</span>
           </div>
           <div className="flex items-center gap-4">
+            <InstallPWA />
             <span className="text-sm text-gray-500 hidden sm:block">
               {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>

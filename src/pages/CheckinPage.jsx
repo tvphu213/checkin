@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import LoadingSpinner from '../components/LoadingSpinner'
+import InstallPWA from '../components/InstallPWA'
 
 const EMPTY_PERSON = () => ({ id: crypto.randomUUID(), name: '', note: '', hasDuplicate: false })
 
@@ -149,6 +150,9 @@ export default function CheckinPage() {
               <span>Nhớ thanh toán {event.cost.toLocaleString('vi-VN')} VNĐ</span>
             </div>
           )}
+          <div className="flex justify-center mt-4">
+            <InstallPWA />
+          </div>
           <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-3">
             <button onClick={handleCheckinAgain} className="btn-secondary w-full">
               Điểm danh người khác
