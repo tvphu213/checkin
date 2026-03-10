@@ -25,6 +25,7 @@ export default function Dashboard() {
     supabase
       .from('events')
       .select('*')
+      .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (error) {
