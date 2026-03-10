@@ -119,7 +119,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500 hidden sm:block">
-              {user?.email}
+              {user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email}
             </span>
             <Link to="/create" className="btn-primary text-sm py-2 px-4">
               + Tạo sự kiện
